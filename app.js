@@ -1,5 +1,6 @@
 import { firebaseConfig } from './firebase-config.js';
 import { paginate } from './pagination.js';
+import { checklistPath, validUid } from './workspace.js';
 
 const $ = (selector) => document.querySelector(selector);
 const LOCAL_KEY = 'opennote-gongsachecklist-v1';
@@ -9,6 +10,50 @@ let items = [], statusFilter = 'all', editingId = null, user = null, api = null,
 let ready = !configured, toastTimer, lastIdx = 0;
 let currentPage = 1;
 let connectionIssue = '', connectionTimer;
+let storeUid = null, sessionVersion = 0, sharingBusy = false;
+
+function currentChecklistPath() {
+  return checklistPath(storeUid);
+}
+
+function updateSharingInfo() {
+  $('#my-uid').textContent = user?.uid || '로그인 필요';
+  $('#current-store-id').textContent = storeUid || '연결 대기 중';
+  $('#sharing-role').textContent = user && storeUid === user.uid ? '매장 소유자 · 다른 관리자를 추가할 수 있습니다.' : '공유 관리자 · 같은 매장 항목을 함께 수정합니다.';
+  $('#member-controls').hidden = !user || storeUid !== user.uid;
+}
+
+function subscribeChecklist() {
+  unsubscribe?.(); unsubscribe = null;
+  clearTimeout(connectionTimer);
+  const version = sessionVersion, path = currentChecklistPath();
+  items = []; ready = false; connectionIssue = ''; currentPage = 1;
+  $('#item-dialog').close();
+  $('#storage-label').textContent = 'Firebase 동기화 중';
+  $('#demo-notice').textContent = '공유 매장 체크리스트를 불러오는 중입니다.';
+  updateSharingInfo(); render();
+  connectionTimer = setTimeout(() => {
+    if (ready || version !== sessionVersion) return;
+    connectionIssue = '데이터 응답이 지연되고 있습니다. 네트워크와 Realtime Database 공유 매장 규칙을 확인해 주세요.';
+    $('#storage-label').textContent = '데이터 응답 대기 중';
+    $('#demo-notice').textContent = connectionIssue;
+  }, 12000);
+  unsubscribe = api.onValue(api.ref(api.db, path), snapshot => {
+    if (version !== sessionVersion || path !== currentChecklistPath()) return;
+    try {
+      const loaded = [];
+      snapshot.forEach(child => { loaded.push({ ...validate(child.val()), id: child.key }); });
+      items = loaded; ready = true;
+      clearTimeout(connectionTimer); connectionIssue = '';
+      $('#storage-label').textContent = 'Firebase 연결됨';
+      $('#demo-notice').textContent = `프로젝트: ${firebaseConfig.projectId} · 계정: ${user.email} · 매장 ID: ${storeUid} · ${loaded.length}개 항목 · 공유 매장에 실시간 저장됩니다.`;
+      render();
+    } catch (error) { connectionFailed(error); }
+  }, error => {
+    if (version !== sessionVersion || path !== currentChecklistPath()) return;
+    items = []; render(); connectionFailed(error);
+  });
+}
 
 function connectionFailed(error) {
   clearTimeout(connectionTimer);
@@ -85,8 +130,7 @@ function requireAccess() {
 async function saveItem(value, id = null) {
   const data = validate(value);
   if (configured) {
-    const uid = user.uid;
-    await api.set(api.ref(api.db, `gongsachecklist/${uid}/${id || data.idx}`), data);
+    await api.set(api.ref(api.db, `${currentChecklistPath()}/${id || data.idx}`), data);
   } else {
     const next = id ? items.map(x => x.id === id ? { ...data, id } : x) : [...items, { ...data, id: String(data.idx) }];
     localStorage.setItem(LOCAL_KEY, JSON.stringify(next.map(({ id: ignored, ...x }) => x)));
@@ -208,7 +252,7 @@ async function removeItem(item, button) {
   if (!requireAccess() || !confirm(`「${item.content}」 항목을 삭제할까요?\n삭제한 항목은 복구할 수 없습니다.`)) return;
   button.disabled = true;
   try {
-    if (configured) await api.remove(api.ref(api.db, `gongsachecklist/${user.uid}/${item.id}`));
+    if (configured) await api.remove(api.ref(api.db, `${currentChecklistPath()}/${item.id}`));
     else {
       const next = items.filter(x => x.id !== item.id);
       localStorage.setItem(LOCAL_KEY, JSON.stringify(next.map(({ id: ignored, ...x }) => x)));
@@ -274,7 +318,7 @@ $('#import-file').addEventListener('change', async event => {
     const next = imported.map(x => ({ ...x, idx: nextIdx() }));
     if (configured) {
       const updates = Object.fromEntries(next.map(x => [String(x.idx), x]));
-      await api.update(api.ref(api.db, `gongsachecklist/${user.uid}`), updates);
+      await api.update(api.ref(api.db, currentChecklistPath()), updates);
     } else {
       const merged = [...items, ...next.map(x => ({ ...x, id: String(x.idx) }))];
       localStorage.setItem(LOCAL_KEY, JSON.stringify(merged.map(({ id, ...x }) => x)));
@@ -306,6 +350,54 @@ async function authenticate(signup = false) {
 $('#auth-form').addEventListener('submit', event => { event.preventDefault(); authenticate(); });
 $('#signup-button').addEventListener('click', () => authenticate(true));
 
+$('#sharing-button').addEventListener('click', () => {
+  if ($('#save-button').disabled) { toast('항목 저장이 완료된 후 매장을 변경해 주세요.'); return; }
+  if (!configured) { toast('공유 기능은 Firebase 연결 후 사용할 수 있습니다.'); return; }
+  if (!user) { $('#auth-dialog').showModal(); return; }
+  updateSharingInfo(); $('#sharing-error').textContent = '';
+  $('#sharing-dialog').showModal();
+});
+
+async function sharingAction(action) {
+  if (sharingBusy || !user || !api) return;
+  sharingBusy = true;
+  const buttons = $('#sharing-dialog').querySelectorAll('button');
+  buttons.forEach(button => { button.disabled = true; });
+  $('#sharing-error').textContent = '';
+  try { await action(); }
+  catch (error) { $('#sharing-error').textContent = message(error); }
+  finally { sharingBusy = false; buttons.forEach(button => { button.disabled = false; }); }
+}
+
+$('#add-member-button').addEventListener('click', () => sharingAction(async () => {
+  if (storeUid !== user.uid) throw new Error('매장 소유자만 관리자를 등록할 수 있습니다.');
+  const memberUid = $('#member-uid-input').value.trim();
+  if (!validUid(memberUid)) throw new Error('추가할 관리자의 사용자 UID를 확인해 주세요.');
+  if (memberUid === user.uid) throw new Error('본인은 이미 매장 소유자입니다.');
+  await api.set(api.ref(api.db, `gongsachecklistMembers/${storeUid}/${memberUid}`), true);
+  $('#member-uid-input').value = '';
+  toast('관리자를 등록했습니다. 상대방에게 매장 ID를 전달해 주세요.');
+}));
+
+async function selectStore(targetUid) {
+  if (!validUid(targetUid)) throw new Error('매장 ID를 확인해 주세요.');
+  const current = user, version = sessionVersion;
+  if (targetUid !== current.uid) {
+    const membership = await api.get(api.ref(api.db, `gongsachecklistMembers/${targetUid}/${current.uid}`));
+    if (membership.val() !== true) throw new Error('이 매장의 관리자로 등록되지 않았습니다. 매장 소유자에게 내 UID를 전달해 주세요.');
+  }
+  if (version !== sessionVersion) return;
+  await api.set(api.ref(api.db, `gongsachecklistProfiles/${current.uid}/storeUid`), targetUid);
+  if (version !== sessionVersion) return;
+  storeUid = targetUid;
+  subscribeChecklist();
+  $('#sharing-dialog').close();
+  toast('매장 연결을 변경했습니다.');
+}
+$('#join-store-button').addEventListener('click', () => sharingAction(() => selectStore($('#store-id-input').value.trim())));
+$('#own-store-button').addEventListener('click', () => sharingAction(() => selectStore(user.uid)));
+$('#sharing-dialog').addEventListener('cancel', event => { if (sharingBusy) event.preventDefault(); });
+
 async function initialize() {
   if (!configured) { loadLocal(); return; }
   $('#storage-label').textContent = 'Firebase 연결 중';
@@ -319,35 +411,29 @@ async function initialize() {
     ]);
     const app = appModule.initializeApp(firebaseConfig);
     api = { ...authModule, ...dbModule, auth: authModule.getAuth(app), db: dbModule.getDatabase(app) };
-    api.onAuthStateChanged(api.auth, current => {
+    api.onAuthStateChanged(api.auth, async current => {
+      const version = ++sessionVersion;
       unsubscribe?.(); unsubscribe = null;
       clearTimeout(connectionTimer); connectionIssue = '';
-      user = current; items = []; ready = !current; currentPage = 1;
+      user = current; storeUid = null; items = []; ready = !current; currentPage = 1;
       $('#item-dialog').close();
+      $('#sharing-dialog').close();
       $('#account-button').textContent = current ? '로그아웃' : '로그인';
       $('#account-button').title = current ? `${current.email} · UID: ${current.uid}` : '로그인';
       $('#storage-label').textContent = current ? 'Firebase 동기화 중' : '로그인 필요';
       $('#demo-notice').textContent = current ? `${current.email} 계정으로 관리 중 · 브라우저에서 작성한 항목은 백업 파일로 가져올 수 있습니다.` : '로그인하면 내 계정의 공사 체크리스트를 불러옵니다.';
       render();
       if (current) {
-        $('#demo-notice').textContent = '로그인 완료 · Realtime Database 데이터를 불러오는 중입니다.';
         connectionTimer = setTimeout(() => {
-          if (ready) return;
-          connectionIssue = 'Realtime Database 응답이 지연되고 있습니다. databaseURL, 체크리스트 보안 규칙, 네트워크 연결을 확인한 뒤 새로고침해 주세요.';
-          $('#storage-label').textContent = '데이터 응답 대기 중';
-          $('#demo-notice').textContent = connectionIssue;
+          if (version !== sessionVersion || ready) return;
+          $('#demo-notice').textContent = '매장 설정을 불러오는 중입니다. 네트워크와 공유 매장 보안 규칙을 확인해 주세요.';
         }, 12000);
-        const checklistRef = api.ref(api.db, `gongsachecklist/${current.uid}`);
-        unsubscribe = api.onValue(checklistRef, snapshot => {
-          try {
-            const loaded = [];
-            snapshot.forEach(child => { loaded.push({ ...validate(child.val()), id: child.key }); });
-            items = loaded;
-            clearTimeout(connectionTimer); connectionIssue = '';
-            $('#demo-notice').textContent = `Realtime Database 연결 완료 · 프로젝트: ${firebaseConfig.projectId} · 계정: ${current.email} · UID: ${current.uid} · 불러온 항목: ${loaded.length}개 · 저장 경로: gongsachecklist/${current.uid}`;
-            ready = true; $('#storage-label').textContent = 'Firebase 연결됨'; render();
-          } catch (error) { connectionFailed(error); }
-        }, connectionFailed);
+        try {
+          const profile = await api.get(api.ref(api.db, `gongsachecklistProfiles/${current.uid}/storeUid`));
+          if (version !== sessionVersion) return;
+          storeUid = profile.val() || current.uid;
+          subscribeChecklist();
+        } catch (error) { if (version === sessionVersion) connectionFailed(error); }
       }
     });
   } catch (error) {

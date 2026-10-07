@@ -13,7 +13,7 @@
       ]
     },
     {
-      "source": "/(index.html|app.js|firebase-config.js|pagination.js)",
+      "source": "/(index.html|app.js|firebase-config.js|pagination.js|workspace.js)",
       "headers": [{ "key": "Cache-Control", "value": "no-store" }]
     }
   ]

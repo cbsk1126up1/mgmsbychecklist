@@ -2,8 +2,8 @@
   "rules": {
     "gongsachecklist": {
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid",
+        ".read": "auth != null && (auth.uid === $uid || root.child('gongsachecklistMembers').child($uid).child(auth.uid).val() === true)",
+        ".write": "auth != null && (auth.uid === $uid || root.child('gongsachecklistMembers').child($uid).child(auth.uid).val() === true)",
         "$itemId": {
           ".validate": "newData.hasChildren(['idx', 'part', 'content', 'runcheck', 'bigo'])",
           "idx": {
@@ -23,6 +23,25 @@
           },
           "$other": { ".validate": false }
         }
+      }
+    },
+    "gongsachecklistMembers": {
+      "$storeUid": {
+        "$memberUid": {
+          ".read": "auth != null && (auth.uid === $storeUid || auth.uid === $memberUid)",
+          ".write": "auth != null && auth.uid === $storeUid",
+          ".validate": "newData.val() === true"
+        }
+      }
+    },
+    "gongsachecklistProfiles": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "storeUid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isString() && (newData.val() === auth.uid || root.child('gongsachecklistMembers').child(newData.val()).child(auth.uid).val() === true)"
+        },
+        "$other": { ".validate": false }
       }
     }
   }

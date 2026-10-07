@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const root = new URL('./', import.meta.url);
-const allowed = new Set(['index.html', 'style.css', 'app.js', 'firebase-config.js', 'pagination.js']);
+const allowed = new Set(['index.html', 'style.css', 'app.js', 'firebase-config.js', 'pagination.js', 'workspace.js']);
 const types = { html: 'text/html', css: 'text/css', js: 'text/javascript' };
 const port = Number(process.env.PORT || 5500);
 http.createServer(async (request, response) => {
