@@ -43,7 +43,7 @@ Firebase 저장 완료 안내는 서버 응답을 받은 후 표시됩니다. �
 
 ## Vercel 배포
 
-Git 저장소를 Vercel에 연결하고 Framework Preset **Other**, Build Command 비움, Output Directory **.** 으로 배포합니다. 배포 주소를 Firebase Authentication 승인 도메인에 추가합니다. Firebase 설정 값은 브라우저용 공개 정보이며 서비스 계정 비밀키는 넣지 않습니다.
+Git 저장소를 Vercel에 연결하고 Framework Preset **Other**, Build Command **node build.js**, Output Directory **dist** 로 배포합니다. `vercel.json`에도 이 설정이 포함되어 있습니다. 기존 프로젝트 설정의 서버 프레임워크나 라우팅 설정이 있다면 정적 사이트 설정으로 변경합니다. `npm.cmd run build`로 브라우저용 파일 5개만 dist에 복사합니다. server.js는 로컬 개발에만 사용합니다. 배포 주소를 Firebase Authentication 승인 도메인에 추가합니다. Firebase 설정 값은 브라우저용 공개 정보이며 서비스 계정 비밀키는 넣지 않습니다.
 
 실제 서버 저장과 보안 규칙 검증은 사용자의 로그인 및 콘솔 규칙 게시 후 확인해야 합니다.
 

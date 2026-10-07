@@ -3,5 +3,5 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "node server.js", "check": "node --check app.js && node --check firebase-config.js && node --check server.js && node --check pagination.js" }
+  "scripts": { "dev": "node server.js", "build": "node build.js", "check": "node --check app.js && node --check firebase-config.js && node --check server.js && node --check pagination.js && node --check build.js" }
 }

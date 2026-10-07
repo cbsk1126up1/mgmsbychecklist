@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173f35">
+  <title>오픈노트 · 매장 공사 체크리스트</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="./"><span class="brand-icon">✓</span> 오픈노트<span class="brand-dot">.</span></a>
+    <p class="side-caption">우리 가게의 첫 시작</p>
+    <div class="nav-label">WORKSPACE</div>
+    <div class="nav-active"><span>▦</span> 공사 체크리스트 <span class="nav-arrow">↗</span></div>
+    <div class="side-note"><span class="note-icon">✧</span><strong>차근차근, 오픈을 향해.</strong><p>작은 준비 하나하나가<br>좋은 가게를 만듭니다.</p></div>
+    <div class="side-bottom"><span class="status-dot"></span><span id="storage-label">브라우저에 저장 중</span></div>
+  </aside>
+  <main>
+    <header class="topbar"><span>내 매장 <span class="crumb">/</span> <strong>공사 관리</strong></span><button id="account-button" class="button small">로그인</button></header>
+    <div class="workspace">
+      <section class="heading"><div><div class="eyebrow">READY FOR OPENING</div><h1>매장 공사 체크리스트<span>✦</span></h1><p>삼겹살집 오픈 준비, 하나씩 꼼꼼하게 확인해 보세요.</p></div><button id="add-button" class="button primary">＋ 항목 추가</button></section>
+      <section class="stats" aria-label="공사 진행 현황">
+        <article class="stat"><div class="stat-label">전체 작업 <span>▦</span></div><div><strong id="total-count">0</strong><span class="unit">개</span></div><p>오픈을 위해 준비할 항목</p></article>
+        <article class="stat"><div class="stat-label">작업중 <span class="amber">◷</span></div><div><strong id="pending-count">0</strong><span class="unit">개</span></div><p>차근차근 진행하고 있어요</p></article>
+        <article class="stat"><div class="stat-label">작업완료 <span class="green">✓</span></div><div><strong id="done-count">0</strong><span class="unit">개</span></div><p>준비를 마친 항목</p></article>
+        <article class="stat progress-stat"><div class="stat-label">전체 진행률 <span>↗</span></div><div><strong id="progress-number">0</strong><span class="unit">%</span></div><progress id="progress-bar" value="0" max="100" aria-label="전체 진행률"></progress><p id="progress-caption">첫 번째 작업을 등록해 보세요</p></article>
+      </section>
+      <section class="list-panel">
+        <div class="panel-heading"><div><h2>공사 항목 <span id="list-count">0</span></h2><p>진행 상황과 필요한 메모를 한곳에서 관리하세요.</p></div><div class="backup-actions"><button id="export-button" class="text-button">↓ 백업</button><button id="import-button" class="text-button">↑ 가져오기</button><input id="import-file" type="file" accept="application/json,.json" hidden></div></div>
+        <div class="toolbar"><div class="tabs" aria-label="상태 필터"><button class="tab active" data-status="all" aria-pressed="true">전체</button><button class="tab" data-status="no" aria-pressed="false">작업중</button><button class="tab" data-status="on" aria-pressed="false">작업완료</button></div><div class="filters"><select id="part-filter" aria-label="분류 필터"><option value="">모든 분류</option></select><label class="search"><span>⌕</span><input id="search-input" type="search" placeholder="항목, 메모 검색" aria-label="항목과 메모 검색"></label></div></div>
+        <div class="table-wrap"><table><thead><tr><th class="number-col">번호</th><th>분류</th><th class="content-col">작업 항목</th><th>진행 상태</th><th class="memo-col">비고 / 메모</th><th class="action-col">관리</th></tr></thead><tbody id="checklist-body"></tbody></table></div>
+        <div id="empty-state" class="empty-state" hidden><div>▤</div><h3>아직 등록된 항목이 없어요</h3><p>첫 공사 항목을 추가하고 오픈 준비를 시작해 보세요.</p><button id="empty-add-button" class="button primary">＋ 첫 항목 추가</button></div>
+        <nav id="pagination" class="pagination" aria-label="체크리스트 페이지 이동" hidden></nav>
+        <div class="panel-footer"><span id="result-caption" role="status">총 0개 항목</span><span>변경 사항은 자동으로 저장됩니다 <span class="green">✓</span></span></div>
+      </section>
+      <p class="bottom-note">✧ &nbsp; 오늘의 작은 진전이, 우리 가게의 오픈을 앞당깁니다.</p>
+      <div id="demo-notice" class="demo-notice">현재 이 브라우저에 저장됩니다. Firebase 연결 전에는 백업 파일을 보관해 주세요.</div>
+    </div>
+  </main>
+  <dialog id="item-dialog"><form id="item-form"><div class="dialog-heading"><div><span class="eyebrow">CHECKLIST</span><h2 id="dialog-title">공사 항목 추가</h2></div><button type="button" class="close-button" data-close="item-dialog" aria-label="닫기">×</button></div><label>분류 <span class="required">*</span><select id="part-input" required><option value="" disabled selected>분류를 선택해 주세요</option><option value="재료">재료</option><option value="주방설비">주방설비</option><option value="홀">홀</option><option value="외부">외부</option><option value="기타">기타</option></select></label><label>작업 항목 <span class="required">*</span><input id="content-input" maxlength="60" required placeholder="예: 테이블 및 의자 설치"></label><fieldset><legend>진행 상태</legend><label class="radio-card"><input type="radio" name="runcheck" value="no" checked> <span>작업중</span></label><label class="radio-card"><input type="radio" name="runcheck" value="on"> <span>작업완료</span></label></fieldset><label>비고 / 메모 <span class="optional">선택</span><textarea id="bigo-input" rows="6" placeholder="업체 연락처, 일정, 확인할 사항 등을 자유롭게 적어 주세요."></textarea></label><p id="item-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="button" data-close="item-dialog">취소</button><button id="save-button" type="submit" class="button primary">저장하기</button></div></form></dialog>
+  <dialog id="auth-dialog"><form id="auth-form"><div class="dialog-heading"><div><span class="eyebrow">MY WORKSPACE</span><h2>내 체크리스트 로그인</h2></div><button type="button" class="close-button" data-close="auth-dialog" aria-label="닫기">×</button></div><p class="auth-description">같은 계정으로 로그인하면 여러 기기에서 공사 현황을 확인할 수 있어요.</p><label>이메일<input id="email-input" type="email" autocomplete="username" required></label><label>비밀번호<input id="password-input" type="password" minlength="6" autocomplete="current-password" required></label><p id="auth-error" class="error" role="alert"></p><div class="dialog-actions"><button id="signup-button" type="button" class="button">회원가입</button><button type="submit" class="button primary">로그인</button></div></form></dialog>
+  <div id="toast" role="status" class="toast" hidden></div>
+</body>
+</html>
