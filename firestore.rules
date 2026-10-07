@@ -1,0 +1,24 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function validItem(data) {
+      return data.keys().hasAll(['idx', 'part', 'content', 'runcheck', 'bigo', 'ownerUid'])
+        && data.keys().hasOnly(['idx', 'part', 'content', 'runcheck', 'bigo', 'ownerUid'])
+        && data.idx is int && data.idx > 0
+        && data.part is string && data.part.size() > 0 && data.part.size() <= 20
+        && data.content is string && data.content.size() > 0 && data.content.size() <= 60
+        && data.runcheck in ['no', 'on']
+        && data.bigo is string && data.bigo.size() <= 200000
+        && data.ownerUid == request.auth.uid;
+    }
+    match /gongsachecklist/{documentId} {
+      allow read, delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create: if signedIn() && validItem(request.resource.data)
+        && documentId == request.auth.uid + '_' + string(request.resource.data.idx);
+      allow update: if signedIn() && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.idx == resource.data.idx
+        && validItem(request.resource.data);
+    }
+  }
+}

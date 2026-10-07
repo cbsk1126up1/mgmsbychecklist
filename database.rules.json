@@ -1,0 +1,29 @@
+{
+  "rules": {
+    "gongsachecklist": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "$itemId": {
+          ".validate": "newData.hasChildren(['idx', 'part', 'content', 'runcheck', 'bigo'])",
+          "idx": {
+            ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 9007199254740991 && newData.val() % 1 === 0 && $itemId === newData.val() + '' && (!data.exists() || newData.val() === data.val())"
+          },
+          "part": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20"
+          },
+          "content": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60"
+          },
+          "runcheck": {
+            ".validate": "newData.val() === 'no' || newData.val() === 'on'"
+          },
+          "bigo": {
+            ".validate": "newData.isString() && newData.val().length <= 200000"
+          },
+          "$other": { ".validate": false }
+        }
+      }
+    }
+  }
+}

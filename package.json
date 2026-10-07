@@ -1,0 +1,7 @@
+{
+  "name": "opennote-gongsachecklist",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "node server.js", "check": "node --check app.js && node --check firebase-config.js && node --check server.js && node --check pagination.js" }
+}
