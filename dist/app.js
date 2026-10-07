@@ -325,7 +325,7 @@ async function initialize() {
       user = current; items = []; ready = !current; currentPage = 1;
       $('#item-dialog').close();
       $('#account-button').textContent = current ? '로그아웃' : '로그인';
-      $('#account-button').title = current?.email || '로그인';
+      $('#account-button').title = current ? `${current.email} · UID: ${current.uid}` : '로그인';
       $('#storage-label').textContent = current ? 'Firebase 동기화 중' : '로그인 필요';
       $('#demo-notice').textContent = current ? `${current.email} 계정으로 관리 중 · 브라우저에서 작성한 항목은 백업 파일로 가져올 수 있습니다.` : '로그인하면 내 계정의 공사 체크리스트를 불러옵니다.';
       render();
@@ -344,7 +344,7 @@ async function initialize() {
             snapshot.forEach(child => { loaded.push({ ...validate(child.val()), id: child.key }); });
             items = loaded;
             clearTimeout(connectionTimer); connectionIssue = '';
-            $('#demo-notice').textContent = `${current.email} 계정으로 관리 중 · Realtime Database 연결 완료`;
+            $('#demo-notice').textContent = `Realtime Database 연결 완료 · 프로젝트: ${firebaseConfig.projectId} · 계정: ${current.email} · UID: ${current.uid} · 불러온 항목: ${loaded.length}개 · 저장 경로: gongsachecklist/${current.uid}`;
             ready = true; $('#storage-label').textContent = 'Firebase 연결됨'; render();
           } catch (error) { connectionFailed(error); }
         }, connectionFailed);
